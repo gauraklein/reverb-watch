@@ -25,7 +25,7 @@ def load_thresholds(text):
 
 
 def threshold_for(title, thresholds):
-    t = title.lower()
+    t = " ".join(title.lower().split())  # collapse double spaces in titles
     hits = [k for k in thresholds if k in t]
     return thresholds[max(hits, key=len)] if hits else None
 
@@ -77,8 +77,23 @@ def main():
         sys.exit("set REVERB_TOKEN and NTFY_TOPIC")
     thresholds = load_thresholds((HERE / "thresholds.txt").read_text())
     seen = json.loads(SEEN.read_text()) if SEEN.exists() else {}
-    for l, price, limit in deals(fetch_feed(token), thresholds, seen):
+    feed = fetch_feed(token)
+    print(f"{len(thresholds)} thresholds, {len(seen)} already alerted, {len(feed)} listings in feed")
+
+    rows = [(float(l["price"]["amount"]), threshold_for(l["title"], thresholds), l) for l in feed]
+    matched = sorted((r for r in rows if r[1] is not None), key=lambda r: r[0] / r[1])
+    print(f"\n{len(matched)} matched a threshold, {len(rows) - len(matched)} didn't. Closest to your max:")
+    for price, limit, l in matched[:15]:
+        print(f"  {price:>8,.0f} / {limit:>6,.0f}  ({price / limit:4.0%})  {l['title'][:60]}")
+    unmatched = [l["title"][:60] for p, lim, l in rows if lim is None]
+    if unmatched:
+        print("\nNo threshold for:", *unmatched[:10], sep="\n  ")
+
+    alerts = 0
+    for l, price, limit in deals(feed, thresholds, seen):
         notify(topic, l, price, limit)
+        alerts += 1
+    print(f"\n{alerts} alert(s) sent")
     SEEN.write_text(json.dumps(seen, indent=0, sort_keys=True))
 
 

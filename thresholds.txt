@@ -2,8 +2,9 @@
 # Uncomment / edit the ones you care about. Hint = cheapest in your feed right now.
 
 art voice channel = 250 
-focusrite isa one = 275 
-1010 music lemondrop = 200
+isa one = 275
+isa-one = 275
+lemondrop = 200
 adam audio d3v = 150
 # art prochannel ii = 
 art voicechannel tube = 200
@@ -63,4 +64,4 @@ sequential take 5 = 700
 porta 02 = 100
 orchid = 300
 dbx 286s = 75 
-dbx 676 tube = 75
+dbx 676 = 75
