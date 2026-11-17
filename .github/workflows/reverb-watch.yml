@@ -1,23 +1,41 @@
 name: reverb-watch
+# One run loops for ~5h45m (checking every 15 min), then starts the next run itself,
+# so we don't depend on GitHub's flaky cron. The schedule is only a backup to restart the chain.
 on:
   schedule:
-    - cron: "7,22,37,52 * * * *"
+    - cron: "7 */6 * * *"
   workflow_dispatch:
 permissions:
-  contents: write
-concurrency: watch
+  contents: write   # push seen.json
+  actions: write    # start the next run
+concurrency:
+  group: watch      # one loop at a time; extra triggers wait in line
 jobs:
   watch:
     runs-on: ubuntu-latest
+    timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
-      - run: python3 watch.py
+      - name: check feed every 15 min
         env:
           REVERB_TOKEN: ${{ secrets.REVERB_TOKEN }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-      - name: save seen.json
         run: |
-          git add seen.json
-          git diff --cached --quiet && exit 0
-          git -c user.name=reverb-watch -c user.email=actions@github.com commit -m "seen"
-          git push
+          git config user.name reverb-watch
+          git config user.email actions@github.com
+          end=$((SECONDS + 20700))
+          while :; do
+            echo "::group::check $(date -u +%H:%M)"
+            git pull -q --rebase   # pick up threshold edits
+            python3 watch.py || echo "::warning::check failed, retrying next round"
+            git add seen.json
+            git diff --cached --quiet || { git commit -qm seen && git push -q; }
+            echo "::endgroup::"
+            [ $SECONDS -ge $end ] && break
+            sleep 900
+          done
+      - name: start next run
+        if: ${{ !cancelled() }}   # cancel a run in the Actions tab to stop the chain
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run reverb-watch.yml --ref main
