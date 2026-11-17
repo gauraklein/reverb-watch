@@ -1,6 +1,7 @@
 name: reverb-watch
 on:
-  schedule: [{cron: "7,22,37,52 * * * *"}]
+  schedule:
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 permissions:
   contents: write
