@@ -1,0 +1,23 @@
+name: reverb-watch
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: watch
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 watch.py
+        env:
+          REVERB_TOKEN: ${{ secrets.REVERB_TOKEN }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      - name: save seen.json
+        run: |
+          git add seen.json
+          git diff --cached --quiet && exit 0
+          git -c user.name=reverb-watch -c user.email=actions@github.com commit -m "seen"
+          git push
